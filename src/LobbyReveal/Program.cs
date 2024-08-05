@@ -106,7 +106,7 @@ namespace LobbyReveal
                     Console.Clear();
                     AnsiConsole.Write(new Markup("[u][yellow]https://www.github.com/Xin1337/Reveal[/][/]")
                         .Centered());
-                    AnsiConsole.Write(new Markup("[u][gray][b]v1.0.2 - Nixheh(Modified)[/][/][/]").Centered());
+                    AnsiConsole.Write(new Markup("[u][gray][b]v1.0.3 - LobbyReveal[/][/][/]").Centered());
                     Console.WriteLine();
                     Console.WriteLine();
                     ModifyBytecode();
@@ -139,22 +139,37 @@ namespace LobbyReveal
 
         private static byte[] GenerateRandomAssemblyBytes()
         {
-            AssemblyDefinition assembly = AssemblyDefinition.CreateAssembly(new AssemblyNameDefinition("DynamicAssembly", new Version(1, 0, 0, 0)), "DynamicAssembly", ModuleKind.Dll);
-            TypeDefinition type = new TypeDefinition("DynamicAssembly", "DynamicType", Mono.Cecil.TypeAttributes.Public | Mono.Cecil.TypeAttributes.Class);
+            AssemblyDefinition assembly = AssemblyDefinition.CreateAssembly(
+                new AssemblyNameDefinition("DynamicAssembly", new Version(1, 0, 0, 0)),
+                "DynamicAssembly",
+                ModuleKind.Dll
+            );
+            TypeDefinition type = new TypeDefinition(
+                "DynamicAssembly",
+                "DynamicType",
+                Mono.Cecil.TypeAttributes.Public | Mono.Cecil.TypeAttributes.Class
+            );
             assembly.MainModule.Types.Add(type);
-            MethodDefinition method = new MethodDefinition("DynamicMethod", Mono.Cecil.MethodAttributes.Public | Mono.Cecil.MethodAttributes.Static, assembly.MainModule.ImportReference(typeof(void)));
+            MethodDefinition method = new MethodDefinition(
+                "DynamicMethod",
+                Mono.Cecil.MethodAttributes.Public | Mono.Cecil.MethodAttributes.Static,
+                assembly.MainModule.ImportReference(typeof(void))
+            );
             type.Methods.Add(method);
             ILProcessor il = method.Body.GetILProcessor();
 
-            // Generate random values for the IL instructions
             Random rand = new Random();
             int a = rand.Next(0, 10);
             int b = rand.Next(0, 10);
 
-            il.Emit(Mono.Cecil.Cil.OpCodes.Ldc_I4, a);
-            il.Emit(Mono.Cecil.Cil.OpCodes.Ldc_I4, b);
+            int x = a;
+            int y = b;
+
+            il.Emit(Mono.Cecil.Cil.OpCodes.Ldc_I4, x);
+            il.Emit(Mono.Cecil.Cil.OpCodes.Ldc_I4, y);
             il.Emit(Mono.Cecil.Cil.OpCodes.Add);
             il.Emit(Mono.Cecil.Cil.OpCodes.Ret);
+
             MemoryStream stream = new MemoryStream();
             assembly.Write(stream);
             return stream.ToArray();
@@ -169,7 +184,6 @@ namespace LobbyReveal
                 var method = type.Methods.First(m => m.Name == "Decrypt");
                 var body = method.Body;
 
-                // Create a new assembly with random IL bytecode
                 byte[] randomBytes = GenerateRandomAssemblyBytes();
                 AssemblyDefinition dynamicAssembly = AssemblyDefinition.ReadAssembly(new MemoryStream(randomBytes));
                 MethodDefinition dynamicMethod = null;
@@ -177,8 +191,6 @@ namespace LobbyReveal
                 {
                     dynamicMethod = dynamicAssembly.MainModule.Types[0].Methods.FirstOrDefault(m => m.Name == "DynamicMethod");
                 }
-
-                // Replace the existing IL bytecode with the random bytes
                 body.Instructions.Clear();
                 if (dynamicMethod != null)
                 {
