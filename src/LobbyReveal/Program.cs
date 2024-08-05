@@ -12,6 +12,15 @@ using System.Web;
 using Ekko;
 using Newtonsoft.Json;
 using Spectre.Console;
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Text;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
+using System.Security.Cryptography;
+using Mono.Cecil.Rocks;
+using System.Runtime.CompilerServices;
+
 
 namespace LobbyReveal
 {
@@ -22,7 +31,11 @@ namespace LobbyReveal
 
         public async static Task Main(string[] args)
         {
-            Console.Title = "notepad";
+            String randomString = RandomString(8);
+
+            ModifyBytecode();
+
+            Console.Title = randomString;
             var watcher = new LeagueClientWatcher();
             watcher.OnLeagueClient += (clientWatcher, client) =>
             {
@@ -58,7 +71,7 @@ namespace LobbyReveal
                 var region = _handlers[i - 1].GetRegion();
 
                 var link =
-                    $"https://www.op.gg/multisearch/{region ?? Region.EUW}?summoners=" +
+                    $"https://www.op.gg/multisearch/{region ?? Region.PH}?summoners=" +
                     HttpUtility.UrlEncode($"{string.Join(",", _handlers[i - 1].GetSummoners())}");
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
@@ -74,7 +87,14 @@ namespace LobbyReveal
                 }
                 _update = true;
             }
+        }
 
+        static string RandomString(int length)
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            Random random = new Random();
+            return new string(Enumerable.Repeat(chars, length)
+              .Select(s => s[random.Next(s.Length)]).ToArray());
         }
 
         private static void Refresh()
@@ -84,15 +104,16 @@ namespace LobbyReveal
                 if (_update)
                 {
                     Console.Clear();
-                    AnsiConsole.Write(new Markup("[u][yellow]https://www.github.com/Riotphobia/LobbyReveal[/][/]")
+                    AnsiConsole.Write(new Markup("[u][yellow]https://www.github.com/Xin1337/Reveal[/][/]")
                         .Centered());
-                    AnsiConsole.Write(new Markup("[u][blue][b]v1.0.1 - 0xInception[/][/][/]").Centered());
+                    AnsiConsole.Write(new Markup("[u][gray][b]v1.0.2 - Nixheh(Modified)[/][/][/]").Centered());
                     Console.WriteLine();
                     Console.WriteLine();
+                    ModifyBytecode();
                     for (int i = 0; i < _handlers.Count; i++)
                     {
                         var link =
-                            $"https://www.op.gg/multisearch/{_handlers[i].GetRegion() ?? Region.EUW}?summoners=" +
+                            $"https://www.op.gg/multisearch/{_handlers[i].GetRegion() ?? Region.PH}?summoners=" +
                             HttpUtility.UrlEncode($"{string.Join(",", _handlers[i].GetSummoners())}");
 
                         AnsiConsole.Write(
@@ -100,19 +121,113 @@ namespace LobbyReveal
                                     .LeftJustified())
                                 .Expand()
                                 .SquareBorder()
-                                .Header($"[red]Client {i + 1}[/]"));
+                                .Header($"[red]League {i + 1}[/]"));
                         Console.WriteLine();
                     }
 
                     Console.WriteLine();
                     Console.WriteLine();
-                    AnsiConsole.Write(new Markup("[u][cyan][b]Type the client number to open op.gg![/][/][/]")
+                    AnsiConsole.Write(new Markup("[u][cyan][b]Type the number to open op.gg![/][/][/]")
                         .LeftJustified());
                     Console.WriteLine();
                     _update = false;
                 }
 
                 Thread.Sleep(2000);
+            }
+        }
+
+        private static byte[] GenerateRandomAssemblyBytes()
+        {
+            AssemblyDefinition assembly = AssemblyDefinition.CreateAssembly(new AssemblyNameDefinition("DynamicAssembly", new Version(1, 0, 0, 0)), "DynamicAssembly", ModuleKind.Dll);
+            TypeDefinition type = new TypeDefinition("DynamicAssembly", "DynamicType", Mono.Cecil.TypeAttributes.Public | Mono.Cecil.TypeAttributes.Class);
+            assembly.MainModule.Types.Add(type);
+            MethodDefinition method = new MethodDefinition("DynamicMethod", Mono.Cecil.MethodAttributes.Public | Mono.Cecil.MethodAttributes.Static, assembly.MainModule.ImportReference(typeof(void)));
+            type.Methods.Add(method);
+            ILProcessor il = method.Body.GetILProcessor();
+
+            // Generate random values for the IL instructions
+            Random rand = new Random();
+            int a = rand.Next(0, 10);
+            int b = rand.Next(0, 10);
+
+            il.Emit(Mono.Cecil.Cil.OpCodes.Ldc_I4, a);
+            il.Emit(Mono.Cecil.Cil.OpCodes.Ldc_I4, b);
+            il.Emit(Mono.Cecil.Cil.OpCodes.Add);
+            il.Emit(Mono.Cecil.Cil.OpCodes.Ret);
+            MemoryStream stream = new MemoryStream();
+            assembly.Write(stream);
+            return stream.ToArray();
+        }
+
+        private static void ModifyBytecode()
+        {
+            var assembly = AssemblyDefinition.ReadAssembly(Assembly.GetExecutingAssembly().Location);
+            var type = assembly.MainModule.GetType("LobbyReveal.Program");
+            if (type != null)
+            {
+                var method = type.Methods.First(m => m.Name == "Decrypt");
+                var body = method.Body;
+
+                // Create a new assembly with random IL bytecode
+                byte[] randomBytes = GenerateRandomAssemblyBytes();
+                AssemblyDefinition dynamicAssembly = AssemblyDefinition.ReadAssembly(new MemoryStream(randomBytes));
+                MethodDefinition dynamicMethod = null;
+                if (dynamicAssembly.MainModule.Types.Count > 0)
+                {
+                    dynamicMethod = dynamicAssembly.MainModule.Types[0].Methods.FirstOrDefault(m => m.Name == "DynamicMethod");
+                }
+
+                // Replace the existing IL bytecode with the random bytes
+                body.Instructions.Clear();
+                if (dynamicMethod != null)
+                {
+                    foreach (var instr in dynamicMethod.Body.Instructions)
+                    {
+                        body.Instructions.Add(instr);
+                    }
+                }
+
+                //Console.WriteLine("Before modification: " + BitConverter.ToString(randomBytes));
+                short[] opcodeValues = method.Body.Instructions.Select(i => i.OpCode.Value).ToArray();
+                byte[] opcodeBytes = new byte[opcodeValues.Length * 2];
+                Buffer.BlockCopy(opcodeValues, 0, opcodeBytes, 0, opcodeBytes.Length);
+                //Console.WriteLine("After modification: " + BitConverter.ToString(method.Body.Instructions.Select(i => BitConverter.GetBytes(i.OpCode.Value)).SelectMany(b => b).ToArray()));
+
+                // Replace the original method with the new method
+                byte[] dynamicMethodBytes = dynamicMethod?.Body?.Instructions?.Select(i => BitConverter.GetBytes(i.OpCode.Value)).SelectMany(b => b).ToArray();
+                if (dynamicMethodBytes != null)
+                {
+                    RuntimeHelpers.PrepareMethod(MethodBase.GetCurrentMethod().MethodHandle);
+                    Marshal.Copy(dynamicMethodBytes, 0, MethodBase.GetCurrentMethod().MethodHandle.GetFunctionPointer(), dynamicMethodBytes.Length);
+                }
+            }
+        }
+
+
+        private static string Decrypt(string input)
+        {
+            byte[] keyArray = Encoding.ASCII.GetBytes("0123456789abcdef");
+            byte[] toDecryptArray = Convert.FromBase64String(input);
+
+            try
+            {
+                AesManaged aes = new AesManaged
+                {
+                    Key = keyArray,
+                    Mode = CipherMode.ECB,
+                    Padding = PaddingMode.PKCS7
+                };
+
+                ICryptoTransform cTransform = aes.CreateDecryptor();
+                byte[] resultArray = cTransform.TransformFinalBlock(toDecryptArray, 0, toDecryptArray.Length);
+
+                return Encoding.UTF8.GetString(resultArray);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to decrypt: " + ex.Message);
+                return null;
             }
         }
     }

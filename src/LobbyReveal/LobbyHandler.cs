@@ -113,8 +113,8 @@ public class LobbyHandler
                     var reg = Enum.TryParse(resp2.lol.cpid, out Platform region);
                     if (!reg)
                     {
-                        Console.WriteLine("Could not figure out region. Setting EUW");
-                        _region = Region.EUW;
+                        Console.WriteLine("Could not figure out region. Setting PH");
+                        _region = Region.PH;
                     }
                     else
                     {
@@ -130,7 +130,8 @@ public class LobbyHandler
                 if (participantsJson?.participants is null)
                     continue;
 
-                var names = participantsJson.participants.Select(x => x.name).ToArray();
+                //var names = participantsJson.participants.Select(x => x.name).ToArray();
+                var names = participantsJson.participants.Select(user => $"{user.game_name}#{user.game_tag}").ToArray();
 
                 if (!_cache.SequenceEqual(names))
                 {

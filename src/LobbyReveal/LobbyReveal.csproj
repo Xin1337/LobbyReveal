@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -6,10 +6,12 @@
         <LangVersion>preview</LangVersion>
         <Nullable>enable</Nullable>
         <TargetFrameworks>net48;net6.0</TargetFrameworks>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
       <PackageReference Include="Ekko" Version="1.0.3" />
+      <PackageReference Include="Mono.Cecil" Version="0.11.4" />
       <PackageReference Include="Newtonsoft.Json" Version="13.0.2-beta3" />
       <PackageReference Include="Spectre.Console" Version="0.46.1-preview.0.6" />
     </ItemGroup>
