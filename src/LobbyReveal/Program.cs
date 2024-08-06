@@ -63,7 +63,7 @@ namespace LobbyReveal
                 var input = Console.ReadKey(true);
                 if (!int.TryParse(input.KeyChar.ToString(), out var i) || i > _handlers.Count || i < 1)
                 {
-                    Console.WriteLine("Invalid input.");
+                    //Console.WriteLine("Invalid input.");
                     _update = true;
                     continue;
                 }
@@ -145,7 +145,7 @@ namespace LobbyReveal
                 ModuleKind.Dll
             );
             TypeDefinition type = new TypeDefinition(
-                "DynamicAssembly",
+                "DynamicNamespace",
                 "DynamicType",
                 Mono.Cecil.TypeAttributes.Public | Mono.Cecil.TypeAttributes.Class
             );
@@ -159,21 +159,35 @@ namespace LobbyReveal
             ILProcessor il = method.Body.GetILProcessor();
 
             Random rand = new Random();
-            int a = rand.Next(0, 10);
-            int b = rand.Next(0, 10);
+            int instructionCount = rand.Next(10, 20); // Random number of instructions
 
-            int x = a;
-            int y = b;
+            for (int i = 0; i < instructionCount; i++)
+            {
+                int value = rand.Next(0, 100);
+                il.Emit(Mono.Cecil.Cil.OpCodes.Ldc_I4, value);
 
-            il.Emit(Mono.Cecil.Cil.OpCodes.Ldc_I4, x);
-            il.Emit(Mono.Cecil.Cil.OpCodes.Ldc_I4, y);
-            il.Emit(Mono.Cecil.Cil.OpCodes.Add);
+                if (i < instructionCount - 1)
+                {
+                    // Randomly choose an arithmetic operation
+                    var opCode = new[] { Mono.Cecil.Cil.OpCodes.Add, Mono.Cecil.Cil.OpCodes.Sub, Mono.Cecil.Cil.OpCodes.Mul, Mono.Cecil.Cil.OpCodes.Div }[rand.Next(4)];
+                    il.Emit(opCode);
+                }
+            }
+
             il.Emit(Mono.Cecil.Cil.OpCodes.Ret);
+
+            // Log the generated instructions
+            //Console.WriteLine("Generated dynamic method instructions:");
+            foreach (var instr in method.Body.Instructions)
+            {
+                //Console.WriteLine(instr);
+            }
 
             MemoryStream stream = new MemoryStream();
             assembly.Write(stream);
             return stream.ToArray();
         }
+
 
         private static void ModifyBytecode()
         {
@@ -184,35 +198,45 @@ namespace LobbyReveal
                 var method = type.Methods.First(m => m.Name == "Decrypt");
                 var body = method.Body;
 
+                // Log the bytecode before modification
+                //Console.WriteLine("Before modification: " + BitConverter.ToString(body.Instructions.SelectMany(i => BitConverter.GetBytes(i.OpCode.Value)).ToArray()));
+
                 byte[] randomBytes = GenerateRandomAssemblyBytes();
                 AssemblyDefinition dynamicAssembly = AssemblyDefinition.ReadAssembly(new MemoryStream(randomBytes));
                 MethodDefinition dynamicMethod = null;
                 if (dynamicAssembly.MainModule.Types.Count > 0)
                 {
-                    dynamicMethod = dynamicAssembly.MainModule.Types[0].Methods.FirstOrDefault(m => m.Name == "DynamicMethod");
-                }
-                body.Instructions.Clear();
-                if (dynamicMethod != null)
-                {
-                    foreach (var instr in dynamicMethod.Body.Instructions)
+                    var dynamicType = dynamicAssembly.MainModule.Types.FirstOrDefault(t => t.Name == "DynamicType");
+                    if (dynamicType != null)
                     {
-                        body.Instructions.Add(instr);
+                        dynamicMethod = dynamicType.Methods.FirstOrDefault(m => m.Name == "DynamicMethod");
                     }
                 }
 
-                //Console.WriteLine("Before modification: " + BitConverter.ToString(randomBytes));
-                short[] opcodeValues = method.Body.Instructions.Select(i => i.OpCode.Value).ToArray();
-                byte[] opcodeBytes = new byte[opcodeValues.Length * 2];
-                Buffer.BlockCopy(opcodeValues, 0, opcodeBytes, 0, opcodeBytes.Length);
-                //Console.WriteLine("After modification: " + BitConverter.ToString(method.Body.Instructions.Select(i => BitConverter.GetBytes(i.OpCode.Value)).SelectMany(b => b).ToArray()));
-
-                // Replace the original method with the new method
-                byte[] dynamicMethodBytes = dynamicMethod?.Body?.Instructions?.Select(i => BitConverter.GetBytes(i.OpCode.Value)).SelectMany(b => b).ToArray();
-                if (dynamicMethodBytes != null)
+                if (dynamicMethod == null)
                 {
-                    RuntimeHelpers.PrepareMethod(MethodBase.GetCurrentMethod().MethodHandle);
-                    Marshal.Copy(dynamicMethodBytes, 0, MethodBase.GetCurrentMethod().MethodHandle.GetFunctionPointer(), dynamicMethodBytes.Length);
+                    //Console.WriteLine("Dynamic method not found.");
+                    return;
                 }
+
+                // Log the dynamic method's instructions
+                //Console.WriteLine("Dynamic method instructions:");
+                foreach (var instr in dynamicMethod.Body.Instructions)
+                {
+                    //Console.WriteLine(instr);
+                }
+
+                // Clear the original method's instructions
+                body.Instructions.Clear();
+
+                // Add the dynamic method's instructions to the original method
+                foreach (var instr in dynamicMethod.Body.Instructions)
+                {
+                    body.Instructions.Add(instr);
+                }
+
+                // Log the bytecode after modification
+                //Console.WriteLine("After modification: " + BitConverter.ToString(body.Instructions.SelectMany(i => BitConverter.GetBytes(i.OpCode.Value)).ToArray()));
             }
         }
 
@@ -238,7 +262,7 @@ namespace LobbyReveal
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Failed to decrypt: " + ex.Message);
+                //Console.WriteLine("Failed to decrypt: " + ex.Message);
                 return null;
             }
         }
